@@ -46,6 +46,15 @@ func NewClient(endpoint string) (*Client, error) {
 type Client struct {
 	endpoint string
 	keys     cache
+	Keys     []interface{}
+}
+
+// GetKeys returns all keys from key set.
+func (c *Client) GetKeys() ([]interface{}, error) {
+	if len(c.Keys) == 0 {
+		c.updateCache()
+	}
+	return c.Keys, nil
 }
 
 // GetKey returns a key for a given key id.
@@ -73,14 +82,19 @@ func (c *Client) updateCache() error {
 		return err
 	}
 
-	for _, k := range ks {
-		c.keys.put(k.KeyID, k.Key)
+	c.Keys = []interface{}{}
+
+	for _, k := range ks.Keys {
+		c.Keys = append(c.Keys, k.Key)
+		if k.KeyID != "" {
+			c.keys.put(k.KeyID, k.Key)
+		}
 	}
 
 	return nil
 }
 
-func fetchJWKs(origin string) ([]jose.JSONWebKey, error) {
+func fetchJWKs(origin string) (*jose.JSONWebKeySet, error) {
 	var ks jose.JSONWebKeySet
 
 	resp, err := httpClient.Get(origin)
@@ -93,7 +107,7 @@ func fetchJWKs(origin string) ([]jose.JSONWebKey, error) {
 		return nil, err
 	}
 
-	return ks.Keys, nil
+	return &ks, nil
 }
 
 type cache struct {
